@@ -3,11 +3,12 @@ import unittest
 from textnode import TextNode, TextType
 from HTMLnode import HTMLNode
 from Leafnode import LeafNode
+from ParentNode import ParentNode
+from text_node_to_html_node import text_node_to_html_node
 
-
-class TestTextNode(unittest.TestCase):
 
 #textnode.py
+class TestTextNode(unittest.TestCase):
     def test_eq_same_values(self):
         n1 = TextNode("This is a text node", TextType.BOLD)
         n2 = TextNode("This is a text node", TextType.BOLD)
@@ -48,8 +49,8 @@ class TestTextNode(unittest.TestCase):
         n = TextNode("x", TextType.PLAIN)
         self.assertFalse(n == "x")  # __eq__ should return False
 
-    
 # HTMLnode.py
+class TestHTMLNode(unittest.TestCase):
     def test_props_to_html_multiple(self):
         node = HTMLNode(
             "a",
@@ -86,6 +87,7 @@ class TestTextNode(unittest.TestCase):
         self.assertIn("props", s)
 
 #LeafNode in HTMLnode.py
+class TestLeafNode(unittest.TestCase):
     def test_leaf_to_html_p(self):
         node = LeafNode("p", "Hello, world!")
         self.assertEqual(node.to_html(), "<p>Hello, world!</p>")
@@ -109,6 +111,62 @@ class TestTextNode(unittest.TestCase):
         node = LeafNode("span", "x")
         self.assertEqual(node.children, [])  # leaf nodes don't keep children
 
+#ParentNode from ParentNode.py
+class TestParentNode(unittest.TestCase):
+    def test_parent_with_children(self):
+        child1 = LeafNode("b", "Bold")
+        child2 = LeafNode(None, " and ")
+        child3 = LeafNode("i", "italic")
+        parent = ParentNode("p", [child1, child2, child3])
+        self.assertEqual(
+            parent.to_html(),
+            "<p><b>Bold</b> and <i>italic</i></p>"
+        )
+
+    def test_parent_with_props(self):
+        child = LeafNode(None, "Click here")
+        parent = ParentNode("a", [child], {"href": "https://google.com"})
+        self.assertEqual(
+            parent.to_html(),
+            '<a href="https://google.com">Click here</a>'
+        )
+
+    def test_parent_without_tag_raises(self):
+        child = LeafNode("span", "oops")
+        with self.assertRaises(ValueError):
+            ParentNode(None, [child])
+
+    def test_parent_without_children_raises(self):
+        with self.assertRaises(ValueError):
+            ParentNode("div", None)
+
+class TestTextToHTML(unittest.TestCase):
+    def test_text(self):
+        n = TextNode("This is a text node", TextType.PLAIN)
+        hn = text_node_to_html_node(n)
+        self.assertIsNone(hn.tag)
+        self.assertEqual(hn.value, "This is a text node")
+
+    def test_bold(self):
+        n = TextNode("Bold", TextType.BOLD)
+        self.assertEqual(text_node_to_html_node(n).to_html(), "<b>Bold</b>")
+
+    def test_italic(self):
+        n = TextNode("It", TextType.ITALIC)
+        self.assertEqual(text_node_to_html_node(n).to_html(), "<i>It</i>")
+
+    def test_link(self):
+        n = TextNode("Click", TextType.LINK, "https://ex.com")
+        self.assertEqual(
+            text_node_to_html_node(n).to_html(),
+            '<a href="https://ex.com">Click</a>'
+        )
+
+    def test_unsupported_raises(self):
+        with self.assertRaises(ValueError):
+            class Dummy: pass
+            # Fake type to force the error
+            n = TextNode("x", TextType("unknown"))  # or monkeypatch if needed
 
 if __name__ == "__main__":
     unittest.main()
