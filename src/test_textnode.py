@@ -2,11 +2,12 @@ import unittest
 
 from textnode import TextNode, TextType
 from HTMLnode import HTMLNode
+from Leafnode import LeafNode
 
 
 class TestTextNode(unittest.TestCase):
 
-    #textnode.py
+#textnode.py
     def test_eq_same_values(self):
         n1 = TextNode("This is a text node", TextType.BOLD)
         n2 = TextNode("This is a text node", TextType.BOLD)
@@ -48,7 +49,7 @@ class TestTextNode(unittest.TestCase):
         self.assertFalse(n == "x")  # __eq__ should return False
 
     
-    # HTMLnode.py
+# HTMLnode.py
     def test_props_to_html_multiple(self):
         node = HTMLNode(
             "a",
@@ -83,6 +84,31 @@ class TestTextNode(unittest.TestCase):
         self.assertIn("tag='a'", s)
         self.assertIn("value='x'", s)
         self.assertIn("props", s)
+
+#LeafNode in HTMLnode.py
+    def test_leaf_to_html_p(self):
+        node = LeafNode("p", "Hello, world!")
+        self.assertEqual(node.to_html(), "<p>Hello, world!</p>")
+
+    def test_leaf_to_html_with_props(self):
+        node = LeafNode("a", "Click me!", {"href": "https://www.google.com"})
+        self.assertEqual(
+            node.to_html(),
+            '<a href="https://www.google.com">Click me!</a>'
+        )
+
+    def test_leaf_to_html_no_tag_raw_text(self):
+        node = LeafNode(None, "just text")
+        self.assertEqual(node.to_html(), "just text")
+
+    def test_leaf_raises_without_value(self):
+        with self.assertRaises(ValueError):
+            LeafNode("p", None).to_html()
+
+    def test_leaf_has_no_children(self):
+        node = LeafNode("span", "x")
+        self.assertEqual(node.children, [])  # leaf nodes don't keep children
+
 
 if __name__ == "__main__":
     unittest.main()
