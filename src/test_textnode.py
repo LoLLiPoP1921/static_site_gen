@@ -5,9 +5,10 @@ from HTMLnode import HTMLNode
 from Leafnode import LeafNode
 from ParentNode import ParentNode
 from text_node_to_html_node import text_node_to_html_node
+from SplitNodesDelimiter import split_nodes_delimiter
+from extract_markdown import extract_markdown_images, extract_markdown_links
 
 
-#textnode.py
 class TestTextNode(unittest.TestCase):
     def test_eq_same_values(self):
         n1 = TextNode("This is a text node", TextType.BOLD)
@@ -49,7 +50,6 @@ class TestTextNode(unittest.TestCase):
         n = TextNode("x", TextType.PLAIN)
         self.assertFalse(n == "x")  # __eq__ should return False
 
-# HTMLnode.py
 class TestHTMLNode(unittest.TestCase):
     def test_props_to_html_multiple(self):
         node = HTMLNode(
@@ -86,7 +86,6 @@ class TestHTMLNode(unittest.TestCase):
         self.assertIn("value='x'", s)
         self.assertIn("props", s)
 
-#LeafNode in HTMLnode.py
 class TestLeafNode(unittest.TestCase):
     def test_leaf_to_html_p(self):
         node = LeafNode("p", "Hello, world!")
@@ -111,7 +110,6 @@ class TestLeafNode(unittest.TestCase):
         node = LeafNode("span", "x")
         self.assertEqual(node.children, [])  # leaf nodes don't keep children
 
-#ParentNode from ParentNode.py
 class TestParentNode(unittest.TestCase):
     def test_parent_with_children(self):
         child1 = LeafNode("b", "Bold")
@@ -168,5 +166,96 @@ class TestTextToHTML(unittest.TestCase):
             # Fake type to force the error
             n = TextNode("x", TextType("unknown"))  # or monkeypatch if needed
 
+class TestSplitNodes(unittest.TestCase):
+    def test_code_backticks(self):
+        node = TextNode("This is text with a `code block` word", TextType.PLAIN)
+        out = split_nodes_delimiter([node], "`", TextType.CODE)
+        self.assertEqual(
+            [(n.text, n.text_type) for n in out],
+            [("This is text with a ", TextType.PLAIN),
+             ("code block", TextType.CODE),
+             (" word", TextType.PLAIN)]
+        )
+
+    def test_bold_double_asterisks(self):
+        node = TextNode("a **bold** move and **more**", TextType.PLAIN)
+        out = split_nodes_delimiter([node], "**", TextType.BOLD)
+        self.assertEqual(
+            [(n.text, n.text_type) for n in out],
+            [("a ", TextType.PLAIN),
+             ("bold", TextType.BOLD),
+             (" move and ", TextType.PLAIN),
+             ("more", TextType.BOLD)]
+        )
+
+    def test_italic_single_underscore(self):
+        node = TextNode("mix _it_ up", TextType.PLAIN)
+        out = split_nodes_delimiter([node], "_", TextType.ITALIC)
+        self.assertEqual(
+            [(n.text, n.text_type) for n in out],
+            [("mix ", TextType.PLAIN),
+             ("it", TextType.ITALIC),
+             (" up", TextType.PLAIN)]
+        )
+
+    def test_non_text_nodes_pass_through(self):
+        n1 = TextNode("plain", TextType.PLAIN)
+        n2 = TextNode("link", TextType.LINK, url="https://x.y")
+        out = split_nodes_delimiter([n1, n2], "`", TextType.CODE)
+        self.assertEqual(out[1], n2)  # unchanged
+
+    def test_unbalanced_raises(self):
+        node = TextNode("oops `no close", TextType.PLAIN)
+        with self.assertRaises(ValueError):
+            split_nodes_delimiter([node], "`", TextType.CODE)
+
+class TestExtractMarkdown(unittest.TestCase):
+
+    # --- IMAGE TESTS ---
+    def test_extract_single_image(self):
+        text = "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
+        matches = extract_markdown_images(text)
+        self.assertListEqual([("image", "https://i.imgur.com/zjjcJKZ.png")], matches)
+
+    def test_extract_multiple_images(self):
+        text = "![one](https://img.com/1.png) and ![two](https://img.com/2.jpg)"
+        matches = extract_markdown_images(text)
+        self.assertListEqual([
+            ("one", "https://img.com/1.png"),
+            ("two", "https://img.com/2.jpg")
+        ], matches)
+
+    def test_extract_no_images(self):
+        text = "This is text without images"
+        matches = extract_markdown_images(text)
+        self.assertListEqual([], matches)
+
+    # --- LINK TESTS ---
+    def test_extract_single_link(self):
+        text = "This is a [link](https://example.com)"
+        matches = extract_markdown_links(text)
+        self.assertListEqual([("link", "https://example.com")], matches)
+
+    def test_extract_multiple_links(self):
+        text = "[google](https://google.com) and [github](https://github.com)"
+        matches = extract_markdown_links(text)
+        self.assertListEqual([
+            ("google", "https://google.com"),
+            ("github", "https://github.com")
+        ], matches)
+
+    def test_extract_no_links(self):
+        text = "This is text without links"
+        matches = extract_markdown_links(text)
+        self.assertListEqual([], matches)
+
+    def test_link_and_image_mixed(self):
+        text = "Here is [a link](https://site.com) and ![an image](https://img.com/img.png)"
+        link_matches = extract_markdown_links(text)
+        img_matches = extract_markdown_images(text)
+
+        self.assertListEqual([("a link", "https://site.com")], link_matches)
+        self.assertListEqual([("an image", "https://img.com/img.png")], img_matches)
+        
 if __name__ == "__main__":
     unittest.main()

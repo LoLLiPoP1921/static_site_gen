@@ -6,6 +6,7 @@ class TextType(Enum):
     UNDERLINE = "underline"
     LINK = "link"
     PLAIN = "plain"
+    CODE   = "code"
 
 class TextNode:
     def __init__(self, text, text_type, url=None):
